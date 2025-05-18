@@ -1,0 +1,102 @@
+
+
+## ✅ **Example: Producer–Consumer using Mailbox and Queue**
+
+---
+
+### **1. Define a Transaction Class**
+
+```systemverilog
+class Transaction;
+    rand bit [7:0] addr;
+    rand bit [7:0] data;
+
+    function void display(string tag = "");
+        $display("%s Transaction: addr = 0x%0h, data = 0x%0h", tag, addr, data);
+    endfunction
+endclass
+```
+
+---
+
+### **2. Testbench using Mailbox and Queue**
+
+```systemverilog
+module tb;
+
+    mailbox #(Transaction) mbox;     // typed mailbox
+    Transaction t_queue[$];          // dynamic queue of Transaction
+    int i;
+
+    initial begin
+        mbox = new(); // create unbounded mailbox
+
+        // Spawn producer and consumer threads
+        fork
+            producer();
+            consumer();
+        join
+    end
+
+    // Producer: create and send transactions to mailbox
+    task producer();
+        Transaction t;
+        for (i = 0; i < 5; i++) begin
+            t = new();
+            assert(t.randomize());
+            t.display("Produced -->");
+            mbox.put(t);     // send to mailbox
+            #10;
+        end
+    endtask
+
+    // Consumer: get from mailbox and store in queue
+    task consumer();
+        Transaction t;
+        repeat (5) begin
+            mbox.get(t);     // blocking get
+            t.display("Consumed <--");
+            t_queue.push_back(t);  // store in queue
+            #5;
+        end
+
+        $display("\nContents of Queue:");
+        foreach (t_queue[j]) begin
+            t_queue[j].display($sformatf("Queue[%0d]", j));
+        end
+    endtask
+
+endmodule
+```
+
+---
+
+## ✅ What This Does:
+
+| Role         | Operation                                  |
+| ------------ | ------------------------------------------ |
+| **Producer** | Randomizes transactions, sends via mailbox |
+| **Consumer** | Receives transactions, stores in queue     |
+| **Queue**    | Used to keep a log of consumed items       |
+
+---
+
+## ✅ Sample Output
+
+```
+Produced --> Transaction: addr = 0x9f, data = 0xb2
+Consumed <-- Transaction: addr = 0x9f, data = 0xb2
+...
+Contents of Queue:
+Queue[0] Transaction: addr = 0x9f, data = 0xb2
+Queue[1] Transaction: addr = 0x01, data = 0x4d
+...
+```
+
+---
+
+This example is especially relevant for testbenches where:
+
+* Drivers produce transactions
+* Monitors or scoreboards store and process them using queues
+
